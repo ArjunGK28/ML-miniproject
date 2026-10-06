@@ -6,11 +6,19 @@ from src.config import PAPER_TABLE2, RESULT_COLUMNS, RESULTS_DIR
 
 
 def compute_metrics(y_true, y_pred):
-    """The paper's three metrics (section 4) plus F1 for the positive class."""
+    """The paper's three metrics (section 4) plus per-class recall and F1.
+
+    Precision follows the formulas printed in the paper: TP / (TP + FP) and TN / (TN + FN).
+    Recall is included because the numbers in the paper's Table 2 behave like recall:
+    in 16 of its 18 rows accuracy is exactly the mean of the two "precision" columns,
+    which holds for recall on a balanced test set but not for precision.
+    """
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
     return {
         "pos_precision": tp / (tp + fp) if tp + fp else 0.0,
         "neg_precision": tn / (tn + fn) if tn + fn else 0.0,
+        "pos_recall": tp / (tp + fn),
+        "neg_recall": tn / (tn + fp),
         "accuracy": (tp + tn) / (tp + tn + fp + fn),
         "f1": 2 * tp / (2 * tp + fp + fn) if tp else 0.0,
     }
@@ -35,8 +43,7 @@ def load_all_results(prefix=""):
 
 def paper_table():
     return pd.DataFrame(PAPER_TABLE2, columns=["model", "vectorization", "paper_C",
-                                               "paper_pos_precision", "paper_neg_precision",
-                                               "paper_accuracy"])
+                                               "paper_pos", "paper_neg", "paper_accuracy"])
 
 
 def compare_with_paper():

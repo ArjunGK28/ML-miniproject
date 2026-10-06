@@ -2,8 +2,9 @@
 import time
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
 from src.config import SEED, VAL_SIZE
 from src.evaluate import compute_metrics, save_results
@@ -11,7 +12,7 @@ from src.features import Featurizer
 from src.preprocess import load_clean
 
 
-def prepare(cleaning="paper", quick=False, **featurizer_options):
+def prepare(cleaning="paper", quick=False, grouped=True, **featurizer_options):
     """Load the reviews and build two sets of feature matrices.
 
     fit/val  : 80/20 split of the training set, vocabulary fitted on the 80% only.
@@ -20,16 +21,22 @@ def prepare(cleaning="paper", quick=False, **featurizer_options):
 
     The validation split is grouped by movie. The dataset's train and test sets share no
     movies, so a random split (same movie on both sides) would overestimate accuracy.
+    grouped=False gives that random split; only split_check.py uses it.
 
     Each X_* is a dict {"binary": ..., "count": ..., "tfidf": ...}.
     """
     train, test = load_clean("train", cleaning, quick), load_clean("test", cleaning, quick)
-    splitter = GroupShuffleSplit(n_splits=1, test_size=VAL_SIZE, random_state=SEED)
-    fit_idx, val_idx = next(splitter.split(train.text, train.label, groups=train.movie))
+    if grouped:
+        splitter = GroupShuffleSplit(n_splits=1, test_size=VAL_SIZE, random_state=SEED)
+        fit_idx, val_idx = next(splitter.split(train.text, train.label, groups=train.movie))
+    else:
+        fit_idx, val_idx = train_test_split(np.arange(len(train)), test_size=VAL_SIZE,
+                                            stratify=train.label, random_state=SEED)
     fit, val = train.iloc[fit_idx], train.iloc[val_idx]
 
     selection = Featurizer(**featurizer_options)
     X_fit, X_val = selection.fit_transform(fit.text), selection.transform(val.text)
+    del selection   # free its vocabulary (millions of n-grams) before building the next one
     featurizer = Featurizer(**featurizer_options)
     X_train, X_test = featurizer.fit_transform(train.text), featurizer.transform(test.text)
     print(f"[{cleaning} cleaning] {len(train)} train / {len(test)} test reviews, "

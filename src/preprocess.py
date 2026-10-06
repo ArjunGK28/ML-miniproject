@@ -2,7 +2,7 @@
 
 "paper"      follows section 3.2 of the paper: drop punctuation, line breaks, numbers and
              stop words, lowercase, and reduce each word to its root (played -> play).
-"paper_nltk" is the same but removes NLTK's full English stop-word list (179 words,
+"paper_nltk" is the same but removes NLTK's full English stop-word list (198 words,
              including "not" and "no") instead of the short list.
 "minimal"    only lowercases and removes the HTML line breaks, so negations such as "not"
              and ratings such as "10" survive. Used for the improvement experiments.
