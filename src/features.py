@@ -12,12 +12,18 @@ class Featurizer:
 
     vocab="full" keeps every n-gram; vocab="reduced" keeps those seen in at least
     REDUCED_MIN_DF reviews (for models that cannot handle millions of features).
+    tokens="words" is scikit-learn's default (words of two or more characters);
+    tokens="rich" also keeps one-letter words and the marks "!" and "?".
     """
 
-    def __init__(self, vocab="full", ngram_range=NGRAM_RANGE, min_df=None, sublinear_tf=False):
+    TOKEN_PATTERNS = {"words": r"(?u)\b\w\w+\b", "rich": r"(?u)\b\w+\b|[!?]"}
+
+    def __init__(self, vocab="full", ngram_range=NGRAM_RANGE, min_df=None, sublinear_tf=False,
+                 tokens="words"):
         if min_df is None:
             min_df = 1 if vocab == "full" else REDUCED_MIN_DF
-        self.vectorizer = CountVectorizer(ngram_range=ngram_range, min_df=min_df)
+        self.vectorizer = CountVectorizer(ngram_range=ngram_range, min_df=min_df,
+                                          token_pattern=self.TOKEN_PATTERNS[tokens])
         self.tfidf = TfidfTransformer(sublinear_tf=sublinear_tf)
 
     def fit_transform(self, texts):
