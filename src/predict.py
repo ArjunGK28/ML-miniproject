@@ -53,13 +53,17 @@ class Predictor:
         if key not in self._featurizers:
             self._featurizers[key] = joblib.load(MODELS_DIR / f"featurizer_{key}.joblib")
         cleaned = clean_text(text, bundle["cleaning"])
-        return self._featurizers[key], self._featurizers[key].transform([cleaned])[bundle["kind"]]
+        X = self._featurizers[key].transform([cleaned])[bundle["kind"]]
+        return cleaned, self._featurizers[key].vectorizer, X
+
+    def can_explain(self, name):
+        return _weights(self.bundles[name]["model"]) is not None
 
     def predict(self, name, text):
         """Return {"label": 0/1, "probability": P(positive) or None, "score": margin or None}."""
         bundle = self.bundles[name]
         model = bundle["model"]
-        _, X = self._features(bundle, text)
+        _, _, X = self._features(bundle, text)
         result = {"label": int(model.predict(X)[0]), "probability": None, "score": None}
         if hasattr(model, "predict_proba"):
             result["probability"] = float(model.predict_proba(X)[0, 1])
@@ -77,8 +81,10 @@ class Predictor:
         weights = _weights(bundle["model"])
         if weights is None:
             return []
-        featurizer, X = self._features(bundle, text)
+        cleaned, vectorizer, X = self._features(bundle, text)
         contributions = X.data * weights[X.indices]
         order = np.argsort(-np.abs(contributions))[:top]
-        names = featurizer.feature_names
+        # Name only the n-grams of this review instead of inverting the whole vocabulary.
+        vocabulary = vectorizer.vocabulary_
+        names = {vocabulary[t]: t for t in vectorizer.build_analyzer()(cleaned) if t in vocabulary}
         return [(names[X.indices[i]], float(contributions[i])) for i in order]

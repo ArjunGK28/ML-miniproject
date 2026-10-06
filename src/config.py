@@ -20,10 +20,12 @@ C_GRID = [0.01, 0.05, 0.25, 0.5, 1]   # section 3.3 of the paper
 
 RESULT_COLUMNS = [
     "model", "vectorization", "cleaning", "C", "n_features", "val_accuracy",
-    "pos_precision", "neg_precision", "accuracy", "f1", "train_seconds",
+    "pos_precision", "neg_precision", "pos_recall", "neg_recall", "accuracy", "f1",
+    "train_seconds",
 ]
 
-# Table 2 of the paper: (model, vectorization, regularization, pos precision, neg precision, accuracy)
+# Table 2 of the paper: (model, vectorization, regularization, "positive precision",
+# "negative precision", accuracy). See evaluate.compute_metrics on those two columns.
 PAPER_TABLE2 = [
     ("Logistic Regression", "binary", 1, 0.908, 0.893, 0.900),
     ("Logistic Regression", "count", 1, 0.899, 0.894, 0.897),
