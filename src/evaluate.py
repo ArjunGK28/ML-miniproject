@@ -10,8 +10,8 @@ def compute_metrics(y_true, y_pred):
 
     Precision follows the formulas printed in the paper: TP / (TP + FP) and TN / (TN + FN).
     Recall is included because the numbers in the paper's Table 2 behave like recall:
-    in 16 of its 18 rows accuracy is exactly the mean of the two "precision" columns,
-    which holds for recall on a balanced test set but not for precision.
+    in 15 of its 18 rows accuracy equals the mean of the two "precision" columns to within
+    rounding, which holds for recall on a balanced test set but not for precision.
     """
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
     return {
