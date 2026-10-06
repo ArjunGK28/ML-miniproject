@@ -38,10 +38,10 @@ class Predictor:
     """Loads every model in models/ and predicts the sentiment of raw reviews."""
 
     def __init__(self):
-        self.bundles = {}
-        for path in sorted(MODELS_DIR.glob("model_*.joblib")):
-            bundle = joblib.load(path)
-            self.bundles[bundle["name"]] = bundle
+        bundles = [joblib.load(path) for path in MODELS_DIR.glob("model_*.joblib")]
+        # Reproduced models first, improvements last.
+        bundles.sort(key=lambda b: (b.get("group") == "Improvement", b["name"]))
+        self.bundles = {bundle["name"]: bundle for bundle in bundles}
         self._featurizers = {}
 
     @property

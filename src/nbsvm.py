@@ -13,6 +13,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
+from sklearn.utils.metaestimators import available_if
 
 
 class NBSVM(ClassifierMixin, BaseEstimator):
@@ -49,3 +50,9 @@ class NBSVM(ClassifierMixin, BaseEstimator):
 
     def predict(self, X):
         return (self.decision_function(X) > 0).astype(int)
+
+    @available_if(lambda self: self.base == "lr" and self.beta == 1)
+    def predict_proba(self, X):
+        """Class probabilities; only defined for an uninterpolated logistic regression."""
+        positive = 1 / (1 + np.exp(-self.decision_function(X)))
+        return np.column_stack([1 - positive, positive])
