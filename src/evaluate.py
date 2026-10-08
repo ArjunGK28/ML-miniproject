@@ -33,12 +33,19 @@ def save_results(rows, name):
 
 
 def load_all_results(prefix=""):
-    """Concatenate every results CSV whose file name starts with `prefix`."""
+    """Concatenate every results CSV whose file name starts with `prefix`.
+
+    Files without the shared result columns (for example the ROC-AUC table) are skipped,
+    and a model that two scripts ran with the same settings is listed once.
+    """
     frames = [pd.read_csv(path).assign(experiment=path.stem)
               for path in sorted(RESULTS_DIR.glob(f"{prefix}*.csv"))]
+    frames = [frame for frame in frames if set(RESULT_COLUMNS) <= set(frame.columns)]
     if not frames:
         return pd.DataFrame(columns=RESULT_COLUMNS + ["experiment"])
-    return pd.concat(frames, ignore_index=True)
+    combined = pd.concat(frames, ignore_index=True)
+    return combined.drop_duplicates(["model", "vectorization", "cleaning", "C", "accuracy"],
+                                    ignore_index=True)
 
 
 def paper_table():

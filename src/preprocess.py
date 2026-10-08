@@ -15,10 +15,15 @@ import pandas as pd
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-from src.config import PROCESSED_DIR, QUICK_N, SEED
+from src.config import DATA_DIR, PROCESSED_DIR, QUICK_N, SEED
 from src.data import load_raw
 
 CLEANING_MODES = ("paper", "paper_nltk", "minimal")
+
+# NLTK's stop words and WordNet are kept inside the project, so every shell and machine
+# reads the same copy and nothing has to be downloaded again at demo time.
+NLTK_DIR = DATA_DIR / "nltk_data"
+nltk.data.path.insert(0, str(NLTK_DIR))
 
 # The paper does not name its stop-word list; its examples ('a', 'the', 'of') come from the
 # short list used in the tutorial it cites for its method (A. Kub, refs [5, 6]).
@@ -34,7 +39,7 @@ def _nltk_stop_words():
     try:
         words = stopwords.words("english")
     except LookupError:
-        nltk.download("stopwords", quiet=True)
+        nltk.download("stopwords", download_dir=str(NLTK_DIR), quiet=True)
         words = stopwords.words("english")
     # Apostrophes are deleted from the text, so "don't" has to match "dont".
     return frozenset(w.replace("'", "") for w in words)
@@ -45,7 +50,7 @@ def _root(word):
     try:
         return _lemmatizer.lemmatize(_lemmatizer.lemmatize(word, pos="v"), pos="n")
     except LookupError:
-        nltk.download("wordnet", quiet=True)
+        nltk.download("wordnet", download_dir=str(NLTK_DIR), quiet=True)
         return _lemmatizer.lemmatize(_lemmatizer.lemmatize(word, pos="v"), pos="n")
 
 
