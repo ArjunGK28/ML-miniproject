@@ -34,8 +34,8 @@ from src.evaluate import compute_metrics
 from src.experiments.improve_features import NB_MODELS, RICH, WIDE_GRID_MODELS
 from src.experiments.runner import prepare, report, run
 
-MLP_MIN_DF = 20                    # vocabulary cut for the MLP (a wide first layer needs fewer features)
-MLP_ALPHAS = [0.0001, 0.001, 0.01]  # L2 strengths compared on the validation split
+MLP_MIN_DF = 50                    # vocabulary cut for the MLP (a wide first layer needs fewer features)
+MLP_ALPHAS = [0.001]  # L2 strengths compared on the validation split
 
 
 def make_mlp(alpha):
