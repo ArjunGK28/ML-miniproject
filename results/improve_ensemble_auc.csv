@@ -1,0 +1,6 @@
+model,roc_auc,accuracy
+NB-LR,0.9723340096,0.91604
+NB-SVM,0.9724358015999999,0.91568
+"SVM (tf-idf, wide C grid)",0.967654816,0.90888
+"MLP (ReLU, 128 units)",0.9575484223999999,0.89312
+"Ensemble (NB-LR + SVM (tf-idf, wide C grid))",0.9739201279999999,0.9182
