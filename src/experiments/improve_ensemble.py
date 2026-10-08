@@ -2,7 +2,8 @@
 
 1. Better MLP. The paper's DNN has five narrow sigmoid layers (30, 30, 20, 10, 10). We use
    one wide ReLU layer instead, on binary n-grams with the lighter cleaning that worked
-   best in improve_features.py. L2 strength alpha is chosen on the validation split.
+   best in improve_features.py. The L2 strength is chosen on the validation split from
+   MLP_ALPHAS (to keep the run short we use a single value, so nothing is really compared).
 2. Ensemble. We average the positive-class scores of four models (NB-LR, NB-SVM, SVM on
    tf-idf with the wide C grid, and the MLP). Which of the 11 possible combinations to use
    is chosen on the validation split; the test set is only used once, at the end.
@@ -34,8 +35,8 @@ from src.evaluate import compute_metrics
 from src.experiments.improve_features import NB_MODELS, RICH, WIDE_GRID_MODELS
 from src.experiments.runner import prepare, report, run
 
-MLP_MIN_DF = 50                    # vocabulary cut for the MLP (a wide first layer needs fewer features)
-MLP_ALPHAS = [0.001]  # L2 strengths compared on the validation split
+MLP_MIN_DF = 50          # keep n-grams found in at least this many reviews (smaller = faster)
+MLP_ALPHAS = [0.001]     # L2 strengths compared on the validation split; add more to compare
 
 
 def make_mlp(alpha):

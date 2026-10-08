@@ -22,7 +22,7 @@ from sklearn.neural_network import MLPClassifier
 
 from src.config import REDUCED_MIN_DF, RESULTS_DIR, SEED, VECTORIZATIONS
 from src.evaluate import save_results
-from src.experiments.runner import prepare, report, run
+from src.experiments.runner import prepare, run
 
 NAME = "reproduction_nonlinear"
 DNN_ALPHA = 0.0001   # the paper's "regularization" column for the DNN
@@ -36,8 +36,9 @@ MODELS = {
         hidden_layer_sizes=(30, 30, 20, 10, 10), activation="logistic", alpha=DNN_ALPHA,
         early_stopping=True, solver="adam", random_state=SEED),
     "Boosting": lambda _: GradientBoostingClassifier(
-        n_estimators=100, learning_rate=0.1, criterion="squared_error", min_samples_split=2,
-        random_state=SEED),
+        n_estimators=100, learning_rate=0.1, min_samples_split=2, random_state=SEED),
+    # The paper lists "MSE" as the split criterion; recent scikit-learn ignores that option
+    # (it always uses the Friedman variant of MSE), so we leave it at the default.
 }
 
 
@@ -59,13 +60,21 @@ def main(quick=False, models=None, kinds=None, min_df=REDUCED_MIN_DF):
     rows = []
     for kind in kinds:
         for name in models:
-            row, _ = run(name, MODELS[name], None, data, kind)   # grid=None: no validation step
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                row, _ = run(name, MODELS[name], None, data, kind)   # grid=None: no validation step
+            if any("interrupted" in str(w.message) for w in caught):
+                # scikit-learn's MLP swallows Ctrl+C and returns a half-trained network, which would
+                # otherwise be saved as if it were a real result.
+                raise SystemExit(f"Interrupted during {name} / {kind}: that row was NOT saved.")
             if name == "DNN":
                 row["C"] = DNN_ALPHA
             rows.append(row)
             if not quick:
                 save_merged([row])
-    report(rows, NAME, quick=True)   # prints the table; the file is already saved above
+    print(pd.DataFrame(rows).to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+    print("\n" + ("--quick run on a small subset: nothing was saved." if quick
+                  else f"Saved to results/{NAME}.csv"))
 
 
 if __name__ == "__main__":
