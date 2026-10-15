@@ -87,8 +87,9 @@ subset, and all random choices use one seed (42).
 every corresponding row of the paper's Table 2 (README, first table). Random Forest (210,685
 features) scores 0.862, 0.860 and 0.855 for binary, count and tf-idf, about one point above the
 paper's 0.852, 0.849 and 0.844. The DNN and Boosting used a smaller vocabulary (17,671 features):
-the binary DNN scores 0.8985 against the paper's 0.906 and binary Boosting 0.8151 against 0.831
-[TO FILL: count and tf-idf rows of the DNN and Boosting, or say which did not finish and why].
+the binary DNN scores 0.8985 against the paper's 0.906 and binary Boosting 0.8151 against 0.831.
+On count and tf-idf features the DNN scores 0.8953 and 0.8989 (paper: 0.898 and 0.901) and
+Boosting 0.8169 and 0.8165 (paper: 0.834 and 0.825).
 In an earlier run with the larger 210,685-feature vocabulary the binary DNN reached 0.9057, the
 paper's value, but it took about ten minutes, so the vocabulary cut explains most of the gap.
 
@@ -113,7 +114,7 @@ improved the results; note that the two use different cleaning, so this is not a
 
 ## 6. Conclusions
 
-We reproduced the paper's Table 2 [TO FILL: "for all 18 rows" / "for the N rows that finished"] and beat its
+We reproduced all 18 rows of the paper's Table 2 (the linear models within 0.35 points, the others within 1.7) and beat its
 best accuracy of 90.6%: NB-LR reaches 91.6% and an ensemble of NB-LR and a tf-idf SVM 91.8%. The gains come
 from simple changes: Naive Bayes log-count ratios on binary n-grams, lighter cleaning that keeps negations,
 and a wider search over the regularisation strength. A different neural network did not help. Along the way

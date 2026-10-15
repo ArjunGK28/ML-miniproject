@@ -31,7 +31,7 @@ def plot_reproduction(path=RESULTS_DIR / "reproduction_vs_paper.png"):
     np.atleast_1d(axes)[0].set_ylabel("Test accuracy")
     handles, labels = np.atleast_1d(axes)[0].get_legend_handles_labels()
     fig.legend(handles, labels, fontsize=8, loc="upper right", ncol=2)
-    fig.suptitle("Reproduction of Table 2 (missing bars = not run yet)", fontsize=10)
+    fig.suptitle("Reproduction of the paper's Table 2", fontsize=10)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
@@ -40,6 +40,8 @@ def plot_reproduction(path=RESULTS_DIR / "reproduction_vs_paper.png"):
 
 def plot_improvements(path=RESULTS_DIR / "improvements.png", top=10):
     rows = load_all_results("improve").dropna(subset=["accuracy"])
+    # The tf-idf SVM is logged by both improvement scripts; show it once.
+    rows = rows.drop_duplicates(subset=["vectorization", "cleaning", "val_accuracy", "accuracy"])
     rows = rows.sort_values("accuracy", ascending=False).head(top).iloc[::-1]
     labels = [f"{r.model} | {r.vectorization}" for r in rows.itertuples()]
     colours = ["#2f6db5" if a > PAPER_BEST_ACCURACY else "#9aa5b8" for a in rows.accuracy]
