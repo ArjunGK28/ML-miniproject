@@ -8,3 +8,8 @@ matplotlib>=3.8
 seaborn>=0.13
 streamlit>=1.50
 jupyter>=1.0
+# Transformer experiments only (src/experiments/transformer_models.py), need an NVIDIA GPU.
+# Install PyTorch's CUDA build first:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu126
+torch>=2.6
+transformers>=4.45
