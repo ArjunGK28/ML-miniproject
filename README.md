@@ -8,6 +8,9 @@ and then improve on them. The paper classifies 50,000 IMDb movie reviews as posi
 negative using three text representations (binary, word count and tf-idf over 3-grams) and
 six models (Logistic Regression, SVM, Naive Bayes, Random Forest, Boosting, DNN).
 
+Write-up: [docs/writeup.pdf](docs/writeup.pdf) (2 pages, source [docs/writeup.md](docs/writeup.md)).
+Slides: [slides/IMDb Sentiment Reproduce & Improve.pptx](<slides/IMDb Sentiment Reproduce & Improve.pptx>).
+
 ## Results
 
 All numbers are accuracy on the 25,000 test reviews. The CSV files in `results/` hold

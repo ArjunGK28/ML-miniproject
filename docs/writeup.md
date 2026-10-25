@@ -1,11 +1,13 @@
 # IMDb Sentiment Analysis: Reproducing and Improving a CS229 Report
 
-UE24CS352A Machine Learning mini-project, problem statement 10
+UE24CS352A Machine Learning mini-project, problem statement 10 · Arjun G Kanagal, Vedaraj H R
 
 ## 1. Problem statement
 
 We were asked to reproduce and improve on _"Machine Learning based classification for
-Sentimental analysis of IMDb reviews"_ by C.-L. Wu and S.-L. Shin (Stanford CS229). The
+Sentimental analysis of IMDb reviews"_ by C.-L. Wu and S.-L. Shin (Stanford CS229).
+Sentiment analysis is the task of deciding whether a text expresses a positive or a negative
+opinion; here there are exactly two classes and no neutral one. The
 report classifies IMDb movie reviews as positive or negative. It cleans the text, turns
 each review into a vector of 3-gram features in three ways (binary, word count, tf-idf)
 and compares six classifiers: Logistic Regression, SVM, Naive Bayes, Random Forest,
@@ -25,7 +27,8 @@ concentrated at the extremes: 1 and 10 make up about 40% of all reviews.
 
 Reviews average 230 words (median 173, longest 2,470). No movie has more than 30
 reviews. The training set covers 3,456 movies and the test set 3,581, with only one movie
-in common, so a model is always tested on movies it has not seen.
+in common, so a model is always tested on movies it has not seen. The dataset identifies
+each movie only by its IMDb ID; it holds no titles or genres.
 
 ## 3. Approach
 
