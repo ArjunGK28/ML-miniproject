@@ -1,11 +1,13 @@
 # IMDb Sentiment Analysis: Reproducing and Improving a CS229 Report
 
-UE24CS352A Machine Learning mini-project, problem statement 10
+UE24CS352A Machine Learning mini-project, problem statement 10 · Arjun G Kanagal, Vedaraj H R
 
 ## 1. Problem statement
 
 We were asked to reproduce and improve on _"Machine Learning based classification for
-Sentimental analysis of IMDb reviews"_ by C.-L. Wu and S.-L. Shin (Stanford CS229). The
+Sentimental analysis of IMDb reviews"_ by C.-L. Wu and S.-L. Shin (Stanford CS229).
+Sentiment analysis is the task of deciding whether a text expresses a positive or a negative
+opinion; here there are exactly two classes and no neutral one. The
 report classifies IMDb movie reviews as positive or negative. It cleans the text, turns
 each review into a vector of 3-gram features in three ways (binary, word count, tf-idf)
 and compares six classifiers: Logistic Regression, SVM, Naive Bayes, Random Forest,
@@ -25,7 +27,8 @@ concentrated at the extremes: 1 and 10 make up about 40% of all reviews.
 
 Reviews average 230 words (median 173, longest 2,470). No movie has more than 30
 reviews. The training set covers 3,456 movies and the test set 3,581, with only one movie
-in common, so a model is always tested on movies it has not seen.
+in common, so a model is always tested on movies it has not seen. The dataset identifies
+each movie only by its IMDb ID; it holds no titles or genres.
 
 ## 3. Approach
 
@@ -62,6 +65,12 @@ on the 25,000 test reviews.
    report's own models.
 3. _A wider C grid_: the report's grid stops at C = 1, which over-regularises tf-idf
    features whose values are much smaller than counts.
+4. _Pretrained transformers_: every model above reads a review as a bag of n-grams. We
+   fine-tune DistilBERT (66 M parameters) and RoBERTa-base (125 M), which read the words
+   in order and start from a language model pretrained on general English text, on the
+   80% training split for up to two epochs, keeping the epoch with the best validation
+   accuracy. Reviews over 512 tokens keep their first 128 and last 382 tokens (Sun et al.,
+   2019). They are not refitted on the full training set, so they see 20% less data.
 
 ## 4. Implementation overview
 
@@ -75,8 +84,10 @@ once on the test set. Each experiment script writes its own CSV with the same co
 `linear_models.py` (Logistic Regression, SVM, Naive Bayes), `nonlinear_models.py` (Random Forest,
 Boosting and the paper's five-layer DNN, on a reduced vocabulary: n-grams found in at least 5 reviews for
 Random Forest and at least 50 for Boosting and the DNN, so that they finish on a laptop),
-`improve_features.py` (cleaning ablation, NB-SVM / NB-LR, wider C grid) and `improve_ensemble.py`
-(a wider ReLU network and an ensemble). `evaluate.py` computes the metrics and the comparison with
+`improve_features.py` (cleaning ablation, NB-SVM / NB-LR, wider C grid), `improve_ensemble.py`
+(a wider ReLU network and an ensemble), `transformer_models.py` (DistilBERT and RoBERTa, PyTorch and
+Hugging Face `transformers` on an RTX 3050 GPU) and `final_comparison.py` (ensembles of the
+transformers, 95% confidence intervals and significance tests). `evaluate.py` computes the metrics and the comparison with
 the paper's Table 2, `plots.py` draws the figures, and a Streamlit app and a Jupyter notebook
 demonstrate the results. Every experiment script has a `--quick` mode for a smoke test on a small
 subset, and all random choices use one seed (42).
@@ -98,13 +109,21 @@ nothing was chosen on them.
 
 | Model                           | Features                 | Accuracy | vs paper's best |
 | ------------------------------- | ------------------------ | -------- | --------------- |
+| RoBERTa-base, fine-tuned        | raw text, subword tokens | 0.9586   | +0.0526         |
+| DistilBERT + RoBERTa ensemble   | raw text, subword tokens | 0.9567   | +0.0507         |
+| DistilBERT, fine-tuned          | raw text, subword tokens | 0.9381   | +0.0321         |
 | NB-LR                           | binary, minimal cleaning | 0.9160   | +0.0100         |
 | NB-SVM                          | binary, minimal cleaning | 0.9157   | +0.0097         |
 | SVM, wider C grid               | tf-idf                   | 0.9089   | +0.0029         |
 | MLP (one ReLU layer, 128 units) | binary, 23,700 features  | 0.8931   | -0.0129         |
 | Ensemble: NB-LR + SVM (tf-idf)  | mixed                    | 0.9182   | +0.0122         |
 
-Naive Bayes scaling of the features is the largest single gain (about 1.3 points over the same
+The transformers give by far the largest gain: RoBERTa reaches 95.9% (95% confidence interval
+95.6 to 96.1%), 5.3 points above the paper. A two-proportion z-test puts every model from NB-LR
+upwards significantly above 0.906 (p < 0.0001), but not the wider-C SVM (p = 0.13). An exact
+McNemar test on the same test reviews separates RoBERTa from NB-LR (p = 6e-140). Validation chose
+the DistilBERT + RoBERTa ensemble, which scored 0.2 points below RoBERTa alone on the test set;
+the difference is within noise. Among the n-gram models, Naive Bayes scaling of the features is the largest single gain (about 1.3 points over the same
 linear models); keeping stop words and negations is worth 1.3 to 1.7 points compared with removing
 NLTK's full stop-word list. The ensemble averages the scores of NB-LR and the tf-idf SVM, the pair
 with the best validation accuracy of the 11 combinations we tried (0.9070); it has the best test
@@ -115,13 +134,15 @@ improved the results; note that the two use different cleaning, so this is not a
 ## 6. Conclusions
 
 We reproduced all 18 rows of the paper's Table 2 (the linear models within 0.35 points, the others within 1.7) and beat its
-best accuracy of 90.6%: NB-LR reaches 91.6% and an ensemble of NB-LR and a tf-idf SVM 91.8%. The gains come
-from simple changes: Naive Bayes log-count ratios on binary n-grams, lighter cleaning that keeps negations,
-and a wider search over the regularisation strength. A different neural network did not help. Along the way
+best accuracy of 90.6% in two ways. Keeping n-gram features, NB-LR reaches 91.6% and an ensemble of NB-LR and a tf-idf
+SVM 91.8%, from Naive Bayes log-count ratios, lighter cleaning that keeps negations and a wider search over the
+regularisation strength. Replacing n-grams with a pretrained transformer that reads word order, fine-tuned
+RoBERTa-base reaches 95.9%, cutting the paper's error rate from 9.4% to 4.1%; both gains are statistically significant.
+A wider feed-forward network on n-grams did not help. Along the way
 we found problems in the paper: its "precision" columns behave like recall, two rows of Table 2 are internally
 inconsistent, and the SVM uses values of C outside the grid it reports.
 **Limitations:** every number comes from one train/test split and one seed. With 25,000 test reviews the
-standard error of an accuracy is about 0.17 points, so the ensemble's 0.22-point lead over NB-LR is within
-noise, although both clearly beat the paper's best. The paper's code is not available, so some details are our
-assumptions, and the DNN and Boosting used a reduced vocabulary. **Future work:** a recurrent or transformer
-model, which the paper names as future work, and confidence intervals from repeated runs.
+standard error of an accuracy is about 0.17 points, so the 0.2-point differences between our ensembles and their
+best members are within noise. The transformers need a GPU and only the number of epochs was tuned. The paper's code is not available, so some details are our
+assumptions, and the DNN and Boosting used a reduced vocabulary. **Future work:** larger
+transformers (RoBERTa-large), a third epoch, and results averaged over several seeds.

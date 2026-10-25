@@ -8,10 +8,37 @@ and then improve on them. The paper classifies 50,000 IMDb movie reviews as posi
 negative using three text representations (binary, word count and tf-idf over 3-grams) and
 six models (Logistic Regression, SVM, Naive Bayes, Random Forest, Boosting, DNN).
 
+Write-up: [docs/writeup.pdf](docs/writeup.pdf) (2 pages, source [docs/writeup.md](docs/writeup.md)).
+Slides: [slides/IMDb Sentiment Reproduce & Improve.pptx](<slides/IMDb Sentiment Reproduce & Improve.pptx>).
+
 ## Results
 
 All numbers are accuracy on the 25,000 test reviews. The CSV files in `results/` hold
 the full metrics.
+
+### Headline
+
+![Every model against the paper's best](results/final_comparison.png)
+
+| Model                                  | Accuracy   | 95% CI           | vs paper's 0.906 | p (above paper) |
+| -------------------------------------- | ---------- | ---------------- | ---------------- | --------------- |
+| **RoBERTa-base, fine-tuned**           | **0.9586** | 0.9561 to 0.9610 | **+0.0526**      | 5e-123          |
+| DistilBERT + RoBERTa ensemble          | 0.9567     | 0.9541 to 0.9592 | +0.0507          | 8e-113          |
+| DistilBERT, fine-tuned                 | 0.9381     | 0.9351 to 0.9410 | +0.0321          | 2e-41           |
+| Ensemble: NB-LR + SVM (tf-idf)         | 0.9182     | 0.9147 to 0.9215 | +0.0122          | 7e-07           |
+| NB-LR                                  | 0.9160     | 0.9125 to 0.9194 | +0.0100          | 4e-05           |
+| SVM, wider C grid (tf-idf)             | 0.9089     | 0.9052 to 0.9124 | +0.0029          | 0.13 (not significant) |
+| Logistic Regression, paper's method    | 0.9004     | 0.8967 to 0.9041 | -0.0056          | 0.98            |
+
+The p-value is a one-sided two-proportion z-test of "this model's accuracy is above
+0.906", counting the sampling noise of both numbers (each is measured on 25,000 reviews).
+On the same test reviews, an exact McNemar test also separates RoBERTa from NB-LR
+(p = 6e-140) and from our reproduction of the paper's Logistic Regression (p = 1e-218).
+`results/final_comparison.csv` has the interval and test for every model we ran.
+
+Validation picked the DistilBERT + RoBERTa ensemble (validation accuracy 0.9530 against
+0.9507 for RoBERTa alone), but on the test set RoBERTa alone is 0.2 points better; the
+difference is within noise and we report both.
 
 ### Reproduction of the paper's Table 2
 
@@ -43,9 +70,29 @@ features) so that they finish on a laptop, and end up 0.9 to 1.7 and 0.2 to 0.8 
 the paper. In an earlier run with the 210,685-feature vocabulary the binary DNN scored
 0.9057 (about ten minutes), level with the paper's 0.906.
 
-### Improvements
+### Improvement 2: pretrained transformers
 
-The paper's best accuracy is 0.906 (DNN, binary features). Our best single model, chosen on validation data, reaches **0.916** (NB-LR). An ensemble of
+Every model in the paper, and every n-gram improvement below, reads a review as a bag of
+n-grams. A transformer reads the words in order and starts from a language model
+pretrained on a large amount of English text, so it can follow negation ("not bad at
+all") and contrast ("the first half is dull, but ..."). We fine-tune two
+(`src/experiments/transformer_models.py`):
+
+| Model        | Pretrained checkpoint     | Parameters | Learning rate | Epochs (chosen on validation) | Training time (RTX 3050) | Test accuracy |
+| ------------ | ------------------------- | ---------- | ------------- | ----------------------------- | ------------------------ | ------------- |
+| DistilBERT   | `distilbert-base-uncased` | 66 M       | 5e-5          | 2 of 2                        | 14 min                   | 0.9381        |
+| RoBERTa-base | `roberta-base`            | 125 M      | 2e-5          | 2 of 2                        | 26 min                   | **0.9586**    |
+
+Both use AdamW (weight decay 0.01), a linear schedule with 6% warm-up, 16 reviews per
+update, bfloat16 mixed precision and seed 42. Reviews longer than 512 tokens keep their
+first 128 and last 382 tokens (Sun et al., 2019). They are fine-tuned on the 80% of the
+training set left after the grouped-by-movie validation split and are not refitted on all
+25,000 reviews, so they see 20% less training data than the n-gram models. Validation
+accuracy was still rising after the second epoch, so a third epoch might add a little.
+
+### Improvement 1: features and linear models
+
+The paper's best accuracy is 0.906 (DNN, binary features). Our best n-gram model, chosen on validation data, reaches **0.916** (NB-LR). An ensemble of
 NB-LR and a tf-idf SVM reaches **0.918**, but its 0.22-point lead is within the noise of one
 test set (the standard error is about 0.17 points).
 
@@ -117,6 +164,15 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+The transformer experiments (step 7b) need an NVIDIA GPU and PyTorch's CUDA build, which
+`pip install -r requirements.txt` does not pick by itself on Windows. Install it first:
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu126
+```
+
+The pretrained models (about 0.8 GB) are downloaded from Hugging Face on the first run.
+
 The dataset ([Large Movie Review Dataset v1.0](https://ai.stanford.edu/~amaas/data/sentiment/),
 84 MB) and the NLTK stop-word and WordNet data are downloaded automatically the first time
 they are needed.
@@ -134,6 +190,8 @@ Run everything from the repository root.
 | 5. Reproduce Random Forest, Boosting, DNN          | `python -m src.experiments.nonlinear_models --models "Random Forest"` then `python -m src.experiments.nonlinear_models --models Boosting DNN --min-df 50` | about 10 min | `results/reproduction_nonlinear.csv`                                                         |
 | 6. Better MLP and ensemble                         | `python -m src.experiments.improve_ensemble`                                                                                                              | about 5 min  | `results/improve_ensemble.csv`, `results/improve_ensemble_auc.csv`, `results/roc_curves.png` |
 | 7. Comparison figures                              | `python -m src.plots`                                                                                                                                     | seconds      | `results/reproduction_vs_paper.png`, `results/improvements.png`                              |
+| 7b. Fine-tune DistilBERT and RoBERTa (NVIDIA GPU)  | `python -m src.experiments.transformer_models`                                                                                                            | 45 min       | `results/transformer_models.csv`, `models/`                                                  |
+| 7c. Final comparison, intervals and tests          | `python -m src.experiments.final_comparison`                                                                                                              | 5 min        | `results/final_comparison.csv`, `results/final_comparison.png`                               |
 | 8. Walkthrough notebook                            | open `notebooks/walkthrough.ipynb` and Run All                                                                                                            |              |                                                                                              |
 | 9. Web demo                                        | `streamlit run app/app.py`                                                                                                                                |              | opens in the browser                                                                         |
 
@@ -169,6 +227,8 @@ docs/                                the paper, the assignment guidelines, the w
 src/experiments/nonlinear_models.py  reproduction: Random Forest, Boosting, DNN (reduced vocabulary)
 src/experiments/improve_ensemble.py  improvements: wider MLP and ensemble
 src/plots.py                         comparison figures made from the results CSVs
+src/experiments/transformer_models.py  improvements: fine-tuned DistilBERT and RoBERTa-base
+src/experiments/final_comparison.py    transformer ensembles, confidence intervals, significance tests
 notebooks/walkthrough.ipynb          walkthrough: data, results vs paper, live predictions
 ```
 
