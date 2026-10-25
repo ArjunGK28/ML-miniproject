@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pandas as pd
 import streamlit as st
 
-from src.config import PAPER_BEST_ACCURACY
+from src.config import PAPER_BEST_ACCURACY, RESULTS_DIR
 from src.evaluate import compare_with_paper, load_all_results
 from src.predict import Predictor
 
@@ -54,19 +54,60 @@ def show_predictions(predictor, text):
     st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch",
                  column_config={"Test accuracy": st.column_config.NumberColumn(format="%.3f")})
 
+    explainable = [name for name in predictor.names if predictor.can_explain(name)]
+    ngram_models = [name for name in explainable if not predictor.is_transformer(name)]
+    transformers = [name for name in explainable if predictor.is_transformer(name)]
+
     st.subheader("Why? The n-grams that mattered most")
     st.caption("Bars to the right push towards positive, bars to the left towards negative.")
-    explainable = [name for name in predictor.names if predictor.can_explain(name)]
-    for column, name in zip(st.columns(max(len(explainable), 1)), explainable):
-        terms = pd.DataFrame(predictor.explain(name, text, top=10), columns=["ngram", "weight"])
+    show_explanations(predictor, text, ngram_models, "ngram")
+
+    if transformers:
+        st.subheader("Why? The words the transformers relied on")
+        st.caption("A transformer has no weight per n-gram, so each word is deleted from the "
+                   "review in turn: the bar is how far the log-odds of positive fall without it.")
+        show_explanations(predictor, text, transformers, "word")
+
+
+def show_explanations(predictor, text, names, unit):
+    for column, name in zip(st.columns(max(len(names), 1)), names):
+        terms = pd.DataFrame(predictor.explain(name, text, top=10), columns=[unit, "weight"])
         terms["direction"] = terms.weight.map(lambda w: "positive" if w > 0 else "negative")
         with column:
             st.markdown(f"**{name}**")
-            st.bar_chart(terms, x="ngram", y="weight", color="direction", horizontal=True,
+            st.bar_chart(terms, x=unit, y="weight", color="direction", horizontal=True,
                          height=320)
 
 
+def show_headline():
+    path = RESULTS_DIR / "final_comparison.csv"
+    if not path.exists():
+        return
+    st.subheader("Headline: every model against the paper's best")
+    final = pd.read_csv(path).dropna(subset=["accuracy"]).drop_duplicates("model")
+    best = final.iloc[final.accuracy.argmax()]
+    left, middle, right = st.columns(3)
+    left.metric("Paper's best (DNN)", f"{PAPER_BEST_ACCURACY:.1%}")
+    middle.metric(f"Our best: {best.model}", f"{best.accuracy:.1%}",
+                  f"{(best.accuracy - PAPER_BEST_ACCURACY) * 100:+.1f} points")
+    right.metric("95% confidence interval", f"{best.ci_low:.1%} – {best.ci_high:.1%}")
+    image = RESULTS_DIR / "final_comparison.png"
+    if image.exists():
+        st.image(str(image))
+    st.caption("`p_above_paper_best`: one-sided test that the accuracy is above 90.6%. "
+               "`mcnemar_p_vs_paper_lr`: exact McNemar test against our reproduction of the "
+               "paper's Logistic Regression on the same 25,000 test reviews.")
+    table = final[["model", "accuracy", "ci_low", "ci_high", "p_above_paper_best",
+                   "mcnemar_p_vs_paper_lr"]].head(8)
+    st.dataframe(table, hide_index=True, width="stretch",
+                 column_config={**{c: st.column_config.NumberColumn(format="%.4f")
+                                   for c in ["accuracy", "ci_low", "ci_high"]},
+                                **{c: st.column_config.NumberColumn(format="%.1e")
+                                   for c in ["p_above_paper_best", "mcnemar_p_vs_paper_lr"]}})
+
+
 def show_results():
+    show_headline()
     comparison = compare_with_paper()
     done = comparison.dropna(subset=["accuracy"])
     st.subheader("Reproduction of the paper's Table 2")
